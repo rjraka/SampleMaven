@@ -1,0 +1,54 @@
+pipeline {
+    agent { label 'Slave1' }
+    tools {
+        maven 'Maven3.6.2'
+        jdk 'JDK-1.8'
+    }
+    stages { 
+        stage ("SCM Checkin-1") {
+            steps {
+              git branch: 'master', url:'https://github.com/rjraka/SampleMaven'
+              git branch: 'master', url:'https://github.com/rjraka/Project2'
+            }
+        }
+        stage ("maven build") {
+            steps {
+                sh "mvn package"
+            }
+        }
+        stage ("Build the Docker Image") {
+            input {
+                    message 'Can we proceed with Image build'
+            }
+            steps {
+                sh "docker build . -t rkscloud/tomcat-b1"
+            }
+        }
+        stage ("Run the Container") {
+            steps {
+                sh "docker run -d -p 90:8080 --name cont01 rkscloud/tomcat-b1"
+            }
+        }
+        stage ("Check the webpage") {
+            steps {
+                sh "sleep 15"
+                sh "curl http://192.168.43.133:90"
+            }
+        }
+        stage ("Push to Docker HUB") {
+            steps {
+                sh "docker push rkscloud/tomcat-b1:latest"
+            }
+        }
+        stage ("Cleanup the previous Docker Image and container") {
+            input {
+                    message 'Can we Delete the Docker image and Container'
+            }
+            steps {
+                sh "docker rm cont01 -f"
+                sh "docker image rmi rkscloud/tomcat-b1 -f"
+                sh "mvn clean package"
+            }
+        }
+    }
+}
